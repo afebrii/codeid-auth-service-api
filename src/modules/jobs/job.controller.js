@@ -1,50 +1,51 @@
 const JobService = require('./job.service');
-const response = require('../../shared/utils/response');
+const response   = require('../../shared/utils/response');
 
 const JobController = {
-  async getAll(req, res, next) {
+  async index(req, res, next) {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const search = req.query.search || '';
-      
-      const data = await JobService.getAllJobs({ search, page, limit });
-      response.paginate(res, data.jobs, data.pagination, 'Data jobs berhasil diambil');
-    } catch (e) { next(e); }
+      const data = await JobService.getAll();
+      return response.success(res, data, 'Daftar job berhasil diambil');
+    } catch (err) {
+      next(err);
+    }
   },
 
-  async getById(req, res, next) {
+  async show(req, res, next) {
     try {
-      const jobId = parseInt(req.params.id);
-      const data = await JobService.getJobById(jobId);
-      response.success(res, data, 'Data job berhasil diambil');
-    } catch (e) { next(e); }
+      const data = await JobService.getById(req.params.id);
+      return response.success(res, data, 'Detail job berhasil diambil');
+    } catch (err) {
+      next(err);
+    }
   },
 
   async create(req, res, next) {
     try {
-      const { job_title, min_salary, max_salary } = req.body;
-      const data = await JobService.createJob({ job_title, min_salary, max_salary });
-      response.success(res, data, 'Job berhasil ditambahkan', 201);
-    } catch (e) { next(e); }
+      const data = await JobService.create(req.body);
+      return response.success(res, data, 'Job berhasil dibuat', 201);
+    } catch (err) {
+      next(err);
+    }
   },
 
   async update(req, res, next) {
     try {
-      const jobId = parseInt(req.params.id);
-      const { job_title, min_salary, max_salary } = req.body;
-      const data = await JobService.updateJob(jobId, { job_title, min_salary, max_salary });
-      response.success(res, data, 'Job berhasil diperbarui');
-    } catch (e) { next(e); }
+      const data = await JobService.update(req.params.id, req.body);
+      return response.success(res, data, 'Job berhasil diperbarui');
+    } catch (err) {
+      next(err);
+    }
   },
 
   async delete(req, res, next) {
     try {
-      const jobId = parseInt(req.params.id);
-      const data = await JobService.deleteJob(jobId);
-      response.success(res, data, 'Job berhasil dihapus');
-    } catch (e) { next(e); }
-  }
+      const data = await JobService.remove(req.params.id);
+      return response.success(res, data, 'Job berhasil dihapus');
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 
 module.exports = JobController;
