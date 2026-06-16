@@ -69,6 +69,18 @@ const AuthController = {
     } catch (e) { next(e); }
   },
 
+  // POST /auth/update-password
+  async updatePassword(req, res, next) {
+    try {
+      const { oldPassword, newPassword } = req.body;
+      const data = await AuthService.updatePassword(
+        { userId: req.user.sub, oldPassword, newPassword },
+        getMeta(req)
+      );
+      response.success(res, data, 'Password berhasil diubah. Silakan login kembali.');
+    } catch (e) { next(e); }
+  },
+
   // GET /auth/me
   async me(req, res, next) {
     try {

@@ -7,6 +7,7 @@ const {
   validateVerifyOtp,
   validateRefresh,
   validateLogout,
+  validateUpdatePassword,
 } = require('./auth.validator');
 const authenticate = require('../../shared/middlewares/authenticate');
 
@@ -62,6 +63,14 @@ router.post('/refresh', validateRefresh, AuthController.refresh);
  * @body   { refreshToken }
  */
 router.post('/logout', authenticate, validateLogout, AuthController.logout);
+
+/**
+ * @route  POST /api/auth/update-password
+ * @desc   Update password user yang sedang login
+ * @access Private
+ * @body   { oldPassword, newPassword, confirmPassword }
+ */
+router.post('/update-password', authenticate, validateUpdatePassword, AuthController.updatePassword);
 
 /**
  * @route  GET /api/auth/me

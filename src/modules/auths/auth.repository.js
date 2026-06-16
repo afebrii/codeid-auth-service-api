@@ -51,6 +51,27 @@ const AuthRepository = {
     );
   },
 
+  async findById(userId) {
+    const r = await query(
+      `SELECT user_id, username, email, password_hash, full_name,
+              is_active, is_email_verified, failed_attempts, locked_until
+       FROM   users
+       WHERE  user_id    = :userId
+         AND  deleted_at IS NULL`,
+      { userId }
+    );
+    return r.rows[0] || null;
+  },
+
+  async updatePassword(userId, passwordHash) {
+    await query(
+      `UPDATE users
+       SET    password_hash = :passwordHash
+       WHERE  user_id       = :userId`,
+      { userId, passwordHash }
+    );
+  },
+
   async incrementFailedAttempts(userId, lockoutAt) {
     // lockoutAt — TIMESTAMP string jika perlu lock, null jika belum
     if (lockoutAt) {
@@ -126,7 +147,7 @@ const AuthRepository = {
     );
 
     return {
-      roles:       rolesResult.rows,
+      roles: rolesResult.rows,
       permissions: permsResult.rows,
     };
   },
@@ -229,12 +250,12 @@ const AuthRepository = {
       `INSERT INTO audit_logs (log_id, user_id, action, status, ip_address, user_agent, detail)
        VALUES (seq_audit_logs.NEXTVAL, :userId, :action, :status, :ipAddress, :userAgent, :detail)`,
       {
-        userId:    userId    || null,
+        userId: userId || null,
         action,
         status,
         ipAddress: ipAddress || null,
         userAgent: userAgent || null,
-        detail:    detail    || null,
+        detail: detail || null,
       }
     );
   },

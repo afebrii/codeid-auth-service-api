@@ -1,8 +1,8 @@
-const argon2       = require('argon2');
+const argon2 = require('argon2');
 const { v4: uuid } = require('uuid');
-const config       = require('../../../config');
-const AppError     = require('../../shared/utils/AppError');
-const tokenHelper  = require('../../shared/utils/tokenHelper');
+const config = require('../../../config');
+const AppError = require('../../shared/utils/AppError');
+const tokenHelper = require('../../shared/utils/tokenHelper');
 const emailService = require('../../shared/utils/emailService');
 const AuthRepository = require('./auth.repository');
 const authHelper = require('./auth.helper');
@@ -16,7 +16,7 @@ const AuthService = {
       AuthRepository.findByEmail(email),
       AuthRepository.findByUsername(username),
     ]);
-    if (existEmail)    throw new AppError('Email sudah terdaftar', 409);
+    if (existEmail) throw new AppError('Email sudah terdaftar', 409);
     if (existUsername) throw new AppError('Username sudah dipakai', 409);
 
     // Hash password
@@ -31,7 +31,7 @@ const AuthService = {
     await AuthRepository.assignDefaultRole(userId);
 
     // Kirim OTP email verify
-    const otp     = authHelper.generateOtp();
+    const otp = authHelper.generateOtp();
     const otpHash = await argon2.hash(otp, {
       ...config.argon2, memoryCost: 19456, timeCost: 2,
     });
@@ -39,7 +39,7 @@ const AuthService = {
     await AuthRepository.createOtp({
       userId,
       otpHash,
-      purpose:   'EMAIL_VERIFY',
+      purpose: 'EMAIL_VERIFY',
       expiresAt: authHelper.otpExpiresAt(),
     });
 
@@ -47,11 +47,11 @@ const AuthService = {
 
     await AuthRepository.createAuditLog({
       userId,
-      action:    'REGISTER',
-      status:    'SUCCESS',
+      action: 'REGISTER',
+      status: 'SUCCESS',
       ipAddress: meta.ip,
       userAgent: meta.userAgent,
-      detail:    `User ${username} registered`,
+      detail: `User ${username} registered`,
     });
 
     return {
@@ -70,20 +70,20 @@ const AuthService = {
     if (purpose === 'EMAIL_VERIFY' && user.IS_ACTIVE === 1)
       throw new AppError('Akun sudah terverifikasi', 400);
 
-    const otp     = authHelper.generateOtp();
+    const otp = authHelper.generateOtp();
     const otpHash = await argon2.hash(otp, {
       ...config.argon2, memoryCost: 19456, timeCost: 2,
     });
 
     await AuthRepository.createOtp({
-      userId:    user.USER_ID,
+      userId: user.USER_ID,
       otpHash,
       purpose,
       expiresAt: authHelper.otpExpiresAt(),
     });
 
     await emailService.sendOtp({
-      to:       user.EMAIL,
+      to: user.EMAIL,
       username: user.USERNAME,
       otp,
       purpose,
@@ -124,41 +124,41 @@ const AuthService = {
       await AuthRepository.activateUser(user.USER_ID);
 
       const { roles, permissions } = await AuthRepository.getUserRolesAndPermissions(user.USER_ID);
-      const payload                = authHelper.buildJwtPayload(user, roles, permissions);
-      const accessToken            = tokenHelper.signAccess(payload);
-      const refreshToken           = uuid();
+      const payload = authHelper.buildJwtPayload(user, roles, permissions);
+      const accessToken = tokenHelper.signAccess(payload);
+      const refreshToken = uuid();
 
       // Simpan token
       const decodedAccess = tokenHelper.decode(accessToken);
       await Promise.all([
         AuthRepository.saveToken({
-          userId:     user.USER_ID,
-          tokenType:  'ACCESS_JWT',
+          userId: user.USER_ID,
+          tokenType: 'ACCESS_JWT',
           tokenValue: decodedAccess.jti,
-          expiresAt:  new Date(decodedAccess.exp * 1000),
-          ipAddress:  meta.ip,
+          expiresAt: new Date(decodedAccess.exp * 1000),
+          ipAddress: meta.ip,
         }),
         AuthRepository.saveToken({
-          userId:     user.USER_ID,
-          tokenType:  'REFRESH',
+          userId: user.USER_ID,
+          tokenType: 'REFRESH',
           tokenValue: refreshToken,
-          expiresAt:  authHelper.refreshExpiresAt(),
+          expiresAt: authHelper.refreshExpiresAt(),
           deviceInfo: meta.userAgent,
-          ipAddress:  meta.ip,
+          ipAddress: meta.ip,
         }),
       ]);
 
       await AuthRepository.createAuditLog({
-        userId:    user.USER_ID,
-        action:    'EMAIL_VERIFY',
-        status:    'SUCCESS',
+        userId: user.USER_ID,
+        action: 'EMAIL_VERIFY',
+        status: 'SUCCESS',
         ipAddress: meta.ip,
-        detail:    'Email berhasil diverifikasi',
+        detail: 'Email berhasil diverifikasi',
       });
 
       return {
         verified: true,
-        message:  'Akun berhasil diverifikasi',
+        message: 'Akun berhasil diverifikasi',
         ...authHelper.buildAuthResponse(
           { ...user, IS_ACTIVE: 1 },
           roles, permissions,
@@ -199,19 +199,19 @@ const AuthService = {
 
     if (!valid) {
       const newAttempts = (user.FAILED_ATTEMPTS || 0) + 1;
-      const shouldLock  = newAttempts >= config.lockout.maxFailedAttempts;
-      const lockoutAt   = shouldLock
+      const shouldLock = newAttempts >= config.lockout.maxFailedAttempts;
+      const lockoutAt = shouldLock
         ? new Date(Date.now() + config.lockout.lockMinutes * 60 * 1000)
         : null;
 
       await AuthRepository.incrementFailedAttempts(user.USER_ID, lockoutAt);
       await AuthRepository.createAuditLog({
-        userId:    user.USER_ID,
-        action:    'LOGIN',
-        status:    'FAILED',
+        userId: user.USER_ID,
+        action: 'LOGIN',
+        status: 'FAILED',
         ipAddress: meta.ip,
         userAgent: meta.userAgent,
-        detail:    `Attempt ${newAttempts}/${config.lockout.maxFailedAttempts}`,
+        detail: `Attempt ${newAttempts}/${config.lockout.maxFailedAttempts}`,
       });
 
       if (shouldLock)
@@ -230,37 +230,37 @@ const AuthService = {
     const { roles, permissions } = await AuthRepository.getUserRolesAndPermissions(user.USER_ID);
 
     // Build token
-    const payload      = authHelper.buildJwtPayload(user, roles, permissions);
-    const accessToken  = tokenHelper.signAccess(payload);
+    const payload = authHelper.buildJwtPayload(user, roles, permissions);
+    const accessToken = tokenHelper.signAccess(payload);
     const refreshToken = uuid();
 
     const decodedAccess = tokenHelper.decode(accessToken);
 
     await Promise.all([
       AuthRepository.saveToken({
-        userId:     user.USER_ID,
-        tokenType:  'ACCESS_JWT',
+        userId: user.USER_ID,
+        tokenType: 'ACCESS_JWT',
         tokenValue: decodedAccess.jti,
-        expiresAt:  new Date(decodedAccess.exp * 1000),
-        ipAddress:  meta.ip,
+        expiresAt: new Date(decodedAccess.exp * 1000),
+        ipAddress: meta.ip,
       }),
       AuthRepository.saveToken({
-        userId:     user.USER_ID,
-        tokenType:  'REFRESH',
+        userId: user.USER_ID,
+        tokenType: 'REFRESH',
         tokenValue: refreshToken,
-        expiresAt:  authHelper.refreshExpiresAt(),
+        expiresAt: authHelper.refreshExpiresAt(),
         deviceInfo: meta.userAgent,
-        ipAddress:  meta.ip,
+        ipAddress: meta.ip,
       }),
     ]);
 
     await AuthRepository.createAuditLog({
-      userId:    user.USER_ID,
-      action:    'LOGIN',
-      status:    'SUCCESS',
+      userId: user.USER_ID,
+      action: 'LOGIN',
+      status: 'SUCCESS',
       ipAddress: meta.ip,
       userAgent: meta.userAgent,
-      detail:    `Login dari ${meta.ip || 'unknown'}`,
+      detail: `Login dari ${meta.ip || 'unknown'}`,
     });
 
     return authHelper.buildAuthResponse(user, roles, permissions, accessToken, refreshToken);
@@ -271,6 +271,7 @@ const AuthService = {
     const tokenRecord = await AuthRepository.findRefreshToken(refreshToken);
     if (!tokenRecord)
       throw new AppError('Refresh token tidak valid atau sudah expired', 401);
+
 
     // Ambil data user terbaru (roles bisa berubah)
     const user = await AuthRepository.findByEmail(
@@ -295,25 +296,25 @@ const AuthService = {
     await AuthRepository.revokeToken(refreshToken, 'REFRESH');
 
     // Issue token baru
-    const payload         = authHelper.buildJwtPayload(freshUser, roles, permissions);
-    const newAccessToken  = tokenHelper.signAccess(payload);
+    const payload = authHelper.buildJwtPayload(freshUser, roles, permissions);
+    const newAccessToken = tokenHelper.signAccess(payload);
     const newRefreshToken = uuid();
-    const decodedAccess   = tokenHelper.decode(newAccessToken);
+    const decodedAccess = tokenHelper.decode(newAccessToken);
 
     await Promise.all([
       AuthRepository.saveToken({
-        userId:     freshUser.USER_ID,
-        tokenType:  'ACCESS_JTI',
+        userId: freshUser.USER_ID,
+        tokenType: 'ACCESS_JTI',
         tokenValue: decodedAccess.jti,
-        expiresAt:  new Date(decodedAccess.exp * 1000),
-        ipAddress:  meta.ip,
+        expiresAt: new Date(decodedAccess.exp * 1000),
+        ipAddress: meta.ip,
       }),
       AuthRepository.saveToken({
-        userId:     freshUser.USER_ID,
-        tokenType:  'REFRESH',
+        userId: freshUser.USER_ID,
+        tokenType: 'REFRESH',
         tokenValue: newRefreshToken,
-        expiresAt:  authHelper.refreshExpiresAt(),
-        ipAddress:  meta.ip,
+        expiresAt: authHelper.refreshExpiresAt(),
+        ipAddress: meta.ip,
       }),
     ]);
 
@@ -333,6 +334,41 @@ const AuthService = {
     return { message: 'Logout berhasil' };
   },
 
+  // ── 8. UPDATE PASSWORD ─────────────────────────────────────
+  async updatePassword({ userId, oldPassword, newPassword }, meta = {}) {
+    const user = await AuthRepository.findById(userId);
+    if (!user) throw new AppError('User tidak ditemukan', 404);
+
+    // Verifikasi password lama
+    const valid = await argon2.verify(user.PASSWORD_HASH, oldPassword);
+    if (!valid) throw new AppError('Password lama salah', 401);
+
+    // Cek password baru tidak boleh sama dengan password lama
+    const isSame = await argon2.verify(user.PASSWORD_HASH, newPassword);
+    if (isSame) throw new AppError('Password baru tidak boleh sama dengan password lama', 400);
+
+    // Hash password baru
+    const passwordHash = await argon2.hash(newPassword, config.argon2);
+
+    // Update password di database
+    await AuthRepository.updatePassword(userId, passwordHash);
+
+    // Revoke semua token aktif user (force relogin)
+    await AuthRepository.revokeAllUserTokens(userId, 'PASSWORD_CHANGE');
+
+    // Create Audit Log
+    await AuthRepository.createAuditLog({
+      userId,
+      action: 'PASSWORD_CHANGE',
+      status: 'SUCCESS',
+      ipAddress: meta.ip,
+      userAgent: meta.userAgent,
+      detail: 'Password successfully updated, all sessions revoked',
+    });
+
+    return { message: 'Password berhasil diubah. Silakan login kembali.' };
+  },
+
   // ── 7. ME — ambil data user + roles + permissions ─────────
   async me(userId) {
     const { query: dbQuery } = require('../../shared/utils/db');
@@ -350,20 +386,20 @@ const AuthService = {
 
     return {
       user: {
-        userId:            user.USER_ID,
-        username:          user.USERNAME,
-        email:             user.EMAIL,
-        fullName:          user.FULL_NAME,
-        phoneNumber:       user.PHONE_NUMBER,
+        userId: user.USER_ID,
+        username: user.USERNAME,
+        email: user.EMAIL,
+        fullName: user.FULL_NAME,
+        phoneNumber: user.PHONE_NUMBER,
         profilePictureUrl: user.PROFILE_PICTURE_URL,
-        isActive:          user.IS_ACTIVE === 1,
-        createdAt:         user.CREATED_AT,
+        isActive: user.IS_ACTIVE === 1,
+        createdAt: user.CREATED_AT,
       },
       roles: roles.map(r => ({ roleId: r.ROLE_ID, roleCode: r.ROLE_CODE, roleName: r.ROLE_NAME })),
       permissions: permissions.map(p => ({
         permissionCode: p.PERMISSION_CODE,
-        module:         p.MODULE,
-        action:         p.ACTION,
+        module: p.MODULE,
+        action: p.ACTION,
       })),
     };
   },

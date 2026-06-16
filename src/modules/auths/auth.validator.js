@@ -1,4 +1,4 @@
-const { z }    = require('zod');
+const { z } = require('zod');
 const AppError = require('../../shared/utils/AppError');
 
 // ── Schemas ────────────────────────────────────────────────
@@ -6,7 +6,7 @@ const AppError = require('../../shared/utils/AppError');
 const signupSchema = z.object({
   username: z
     .string({ required_error: 'username wajib diisi' })
-    .min(3,  'username minimal 3 karakter')
+    .min(3, 'username minimal 3 karakter')
     .max(50, 'username maksimal 50 karakter')
     .regex(/^[a-zA-Z0-9_]+$/, 'username hanya boleh huruf, angka, dan underscore'),
 
@@ -17,8 +17,8 @@ const signupSchema = z.object({
 
   password: z
     .string({ required_error: 'password wajib diisi' })
-    .min(8,  'password minimal 8 karakter')
-    .max(100,'password maksimal 100 karakter')
+    .min(8, 'password minimal 8 karakter')
+    .max(100, 'password maksimal 100 karakter')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'password harus mengandung huruf besar, huruf kecil, dan angka'
@@ -26,8 +26,8 @@ const signupSchema = z.object({
 
   fullName: z
     .string({ required_error: 'fullName wajib diisi' })
-    .min(2,  'fullName minimal 2 karakter')
-    .max(200,'fullName maksimal 200 karakter'),
+    .min(2, 'fullName minimal 2 karakter')
+    .max(200, 'fullName maksimal 200 karakter'),
 });
 
 const loginSchema = z.object({
@@ -79,6 +79,28 @@ const logoutSchema = z.object({
     .min(1, 'refreshToken wajib diisi'),
 });
 
+const updatePasswordSchema = z.object({
+  oldPassword: z
+    .string({ required_error: 'password lama wajib diisi' })
+    .min(1, 'password lama wajib diisi'),
+
+  newPassword: z
+    .string({ required_error: 'password baru wajib diisi' })
+    .min(8, 'password baru minimal 8 karakter')
+    .max(100, 'password baru maksimal 100 karakter')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      'password baru harus mengandung huruf besar, huruf kecil, dan angka'
+    ),
+
+  confirmPassword: z
+    .string({ required_error: 'konfirmasi password baru wajib diisi' })
+    .min(1, 'konfirmasi password baru wajib diisi'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: 'konfirmasi password tidak cocok dengan password baru',
+  path: ['confirmPassword'],
+});
+
 // ── Middleware factory ────────────────────────────────────
 
 const validate = (schema) => (req, res, next) => {
@@ -92,10 +114,11 @@ const validate = (schema) => (req, res, next) => {
 };
 
 module.exports = {
-  validateSignup:    validate(signupSchema),
-  validateLogin:     validate(loginSchema),
-  validateSendOtp:   validate(sendOtpSchema),
+  validateSignup: validate(signupSchema),
+  validateLogin: validate(loginSchema),
+  validateSendOtp: validate(sendOtpSchema),
   validateVerifyOtp: validate(verifyOtpSchema),
-  validateRefresh:   validate(refreshSchema),
-  validateLogout:    validate(logoutSchema),
+  validateRefresh: validate(refreshSchema),
+  validateLogout: validate(logoutSchema),
+  validateUpdatePassword: validate(updatePasswordSchema),
 };
