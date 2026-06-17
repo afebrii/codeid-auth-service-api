@@ -133,16 +133,22 @@ const AuthRepository = {
       { userId }
     );
 
-    // Permissions (dari semua role yang dimiliki user)
+    // Permissions (dari role yang dimiliki user + direct permissions)
     const permsResult = await query(
       `SELECT DISTINCT p.permission_id, p.permission_code, p.module, p.action
-       FROM   user_roles      ur
-       JOIN   role_permissions rp ON rp.role_id      = ur.role_id
-       JOIN   permissions      p  ON p.permission_id  = rp.permission_id
-       JOIN   roles             r  ON r.role_id        = ur.role_id
-                                   AND r.is_active     = 1
-       WHERE  ur.user_id        = :userId
-         AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)`,
+       FROM   permissions p
+       WHERE  p.permission_id IN (
+         SELECT rp.permission_id
+         FROM   user_roles ur
+         JOIN   role_permissions rp ON rp.role_id = ur.role_id
+         JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
+         WHERE  ur.user_id = :userId
+           AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)
+         UNION
+         SELECT up.permission_id
+         FROM   user_permissions up
+         WHERE  up.user_id = :userId
+       )`,
       { userId }
     );
 
