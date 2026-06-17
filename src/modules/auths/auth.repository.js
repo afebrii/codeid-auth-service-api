@@ -133,28 +133,36 @@ const AuthRepository = {
       { userId }
     );
 
-    // Permissions (dari role yang dimiliki user + direct permissions)
-    const permsResult = await query(
+    // 1. Ambil permission dari role
+    const rolePermsResult = await query(
       `SELECT DISTINCT p.permission_id, p.permission_code, p.module, p.action
-       FROM   permissions p
-       WHERE  p.permission_id IN (
-         SELECT rp.permission_id
-         FROM   user_roles ur
-         JOIN   role_permissions rp ON rp.role_id = ur.role_id
-         JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
-         WHERE  ur.user_id = :userId
-           AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)
-         UNION
-         SELECT up.permission_id
-         FROM   user_permissions up
-         WHERE  up.user_id = :userId
-       )`,
+       FROM   user_roles ur
+       JOIN   role_permissions rp ON rp.role_id = ur.role_id
+       JOIN   permissions p ON p.permission_id = rp.permission_id
+       JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
+       WHERE  ur.user_id = :userId
+         AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)`,
       { userId }
     );
 
+    // 2. Ambil permission langsung per user
+    const directPermsResult = await query(
+      `SELECT DISTINCT p.permission_id, p.permission_code, p.module, p.action
+       FROM   user_permissions up
+       JOIN   permissions p ON p.permission_id = up.permission_id
+       WHERE  up.user_id = :userId`,
+      { userId }
+    );
+
+    // 3. Gabungkan dan hilangkan duplikasi berdasarkan PERMISSION_ID di Javascript
+    const allPermsMap = new Map();
+    rolePermsResult.rows.forEach(p => allPermsMap.set(p.PERMISSION_ID, p));
+    directPermsResult.rows.forEach(p => allPermsMap.set(p.PERMISSION_ID, p));
+    const mergedPermissions = Array.from(allPermsMap.values());
+
     return {
       roles: rolesResult.rows,
-      permissions: permsResult.rows,
+      permissions: mergedPermissions,
     };
   },
 

@@ -25,24 +25,32 @@ const AuthorizationRepository = {
   },
 
   async getEffectivePermissions(userId) {
-    const sql = `
+    const rolePermsSql = `
       SELECT DISTINCT p.permission_id, p.permission_code, p.module, p.action
-      FROM   permissions p
-      WHERE  p.permission_id IN (
-        SELECT rp.permission_id
-        FROM   user_roles ur
-        JOIN   role_permissions rp ON rp.role_id = ur.role_id
-        JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
-        WHERE  ur.user_id = :userId
-          AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)
-        UNION
-        SELECT up.permission_id
-        FROM   user_permissions up
-        WHERE  up.user_id = :userId
-      )
+      FROM   user_roles ur
+      JOIN   role_permissions rp ON rp.role_id = ur.role_id
+      JOIN   permissions p ON p.permission_id = rp.permission_id
+      JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
+      WHERE  ur.user_id = :userId
+        AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)
     `;
-    const result = await query(sql, { userId });
-    return result.rows;
+    const directPermsSql = `
+      SELECT DISTINCT p.permission_id, p.permission_code, p.module, p.action
+      FROM   user_permissions up
+      JOIN   permissions p ON p.permission_id = up.permission_id
+      WHERE  up.user_id = :userId
+    `;
+
+    const [rolePermsResult, directPermsResult] = await Promise.all([
+      query(rolePermsSql, { userId }),
+      query(directPermsSql, { userId })
+    ]);
+
+    const allPermsMap = new Map();
+    rolePermsResult.rows.forEach(p => allPermsMap.set(p.PERMISSION_ID, p));
+    directPermsResult.rows.forEach(p => allPermsMap.set(p.PERMISSION_ID, p));
+
+    return Array.from(allPermsMap.values());
   },
 
   async getAllRoles() {
@@ -66,26 +74,34 @@ const AuthorizationRepository = {
     const allPermsResult = await query(allPermsSql, { moduleName });
     const allPerms = allPermsResult.rows;
 
-    // Ambil permission yang saat ini dimiliki user (baik via role maupun direct) untuk modul ini
-    const userPermsSql = `
+    const rolePermsSql = `
       SELECT DISTINCT p.permission_id, p.action
-      FROM   permissions p
-      WHERE  p.module = :moduleName
-        AND  p.permission_id IN (
-          SELECT rp.permission_id
-          FROM   user_roles ur
-          JOIN   role_permissions rp ON rp.role_id = ur.role_id
-          JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
-          WHERE  ur.user_id = :userId
-            AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)
-          UNION
-          SELECT up.permission_id
-          FROM   user_permissions up
-          WHERE  up.user_id = :userId
-        )
+      FROM   user_roles ur
+      JOIN   role_permissions rp ON rp.role_id = ur.role_id
+      JOIN   permissions p ON p.permission_id = rp.permission_id
+      JOIN   roles r ON r.role_id = ur.role_id AND r.is_active = 1
+      WHERE  ur.user_id = :userId
+        AND  p.module = :moduleName
+        AND  (ur.expires_at IS NULL OR ur.expires_at > SYSTIMESTAMP)
     `;
-    const userPermsResult = await query(userPermsSql, { userId, moduleName });
-    const userPerms = userPermsResult.rows;
+    const directPermsSql = `
+      SELECT DISTINCT p.permission_id, p.action
+      FROM   user_permissions up
+      JOIN   permissions p ON p.permission_id = up.permission_id
+      WHERE  up.user_id = :userId
+        AND  p.module = :moduleName
+    `;
+
+    const [rolePermsResult, directPermsResult] = await Promise.all([
+      query(rolePermsSql, { userId, moduleName }),
+      query(directPermsSql, { userId, moduleName })
+    ]);
+
+    const userPermsMap = new Map();
+    rolePermsResult.rows.forEach(p => userPermsMap.set(p.PERMISSION_ID, p));
+    directPermsResult.rows.forEach(p => userPermsMap.set(p.PERMISSION_ID, p));
+
+    const userPerms = Array.from(userPermsMap.values());
 
     // Aksi yang sudah dimiliki user (Permissions)
     const grantedActions = userPerms;
