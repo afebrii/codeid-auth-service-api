@@ -405,4 +405,4 @@ BEGIN
 END;
 /
 
-select * from users
+-- select * from users;
